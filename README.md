@@ -1,7 +1,7 @@
 # Inviting AI Characters in Obsidian
   
 This plugin for Obsidian allows you to save AI character system prompts directly within the application.
-You will have a chat panel in which you can load any character that you have created using a system prompt template, and this character will greet you each day, helping you address your tasks, being your chat buddym reading your documents for you etc. 
+You will have a chat panel in which you can load any character that you have created using a system prompt template, and this character will greet you each day, helping you address your tasks, being your chat buddy, reading your documents for you etc. 
 
 This is still a bit clunky but it works and I hope people will be interested in contributing !
 
@@ -36,7 +36,8 @@ I will make an official obsidian plugin request soon, once I am more confident i
 
 1. Download the plugin ZIP file from the [GitHub repository](link_to_repo).  
 2. Unzip the file and place it in the Obsidian plugins folder.  
-3. Activate the plugin in the Obsidian settings.
+3. Activate the plugin in the Obsidian settings
+4. Load an OpenAI API key in the settings (key will be stored in the settings on your local machine) 
   
 ## Usage  
   
