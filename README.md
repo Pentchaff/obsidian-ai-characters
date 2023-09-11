@@ -1,12 +1,14 @@
 # Inviting AI Characters in Obsidian
   
-This plugin for Obsidian allows you to save AI character prompt systems directly within the application. It simplifies the creation and management of prompts for training artificial intelligence models.  
+This plugin for Obsidian allows you to save AI character system prompts directly within the application.
+You will have a chat panel in which you can load any character that you have created using a system prompt template, and this character will greet you each day, helping you address your tasks, being your chat buddym reading your documents for you etc. 
 
 This is still a bit clunky but it works and I hope people will be interested in contributing !
 
 # Prerequisites
 Required plugins:
 - The plugin is pretty much standalone for basic usage ( storing characters and interacting with them)
+- Tasks is recommended for the assistant to be able to help you with your tasks
 - QuickAdd is required for advanced prompt templates
 - Text Extractor plugin is required if you want to feed the Ai with pdf documents
 ## Key Features  
