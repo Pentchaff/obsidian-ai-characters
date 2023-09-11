@@ -1,6 +1,4 @@
-
-
-# AI Character Prompt System Backup Plugin for Obsidian  
+# Inviting AI Characters in Obsidian
   
 This plugin for Obsidian allows you to save AI character prompt systems directly within the application. It simplifies the creation and management of prompts for training artificial intelligence models.  
 
