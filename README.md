@@ -35,8 +35,8 @@ Required plugins:
 I will make an official obsidian plugin request soon, once I am more confident in the value-add of the plugin and I look into several cosmetics. 
 
 1. Download the plugin ZIP file from the [GitHub repository](link_to_repo).  
-2. Unzip the file and place it in the Obsidian plugins folder.  
-3. Activate the plugin in the Obsidian settings
+2. Unzip the file and place it in the Obsidian plugins folder ( final path should look like this:  **path_to_your_obsidian_vault/.obsidian/Plugins/obsidian-ai-characters** )
+3. Activate the plugin in Obsidian settings
 4. Load an OpenAI API key in the settings (key will be stored in the settings on your local machine) 
   
 ## Usage  
