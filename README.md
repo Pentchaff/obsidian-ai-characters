@@ -8,7 +8,7 @@ This is still a bit clunky but it works and I hope people will be interested in 
 # Prerequisites
 Required plugins:
 - The plugin is pretty much standalone for basic usage ( storing characters and interacting with them)
-- Tasks is recommended for the assistant to be able to help you with your tasks
+- [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) is recommended for the assistant to be able to help you with your tasks
 - QuickAdd is required for advanced prompt templates
 - Text Extractor plugin is required if you want to feed the Ai with pdf documents
 ## Key Features  
