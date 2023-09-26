@@ -41,11 +41,10 @@ I will make an official obsidian plugin request soon, once I am more confident i
   
 ## Usage  
   
-1. Open Obsidian and create a new file 
-2. Create a character template based on the example provided
-3. Use the `prompt-save` command to save a prompt system.  
-4. Organize your prompts into folders and subfolders according to your preference.  
-5. Use the `prompt-export` command to export your prompts as text files.  
+1. Open Obsidian and create a new folder to store your templates
+2. In the Settings, point to this folder so the program knows where to find the files 
+4. Create a character template based on the example provided
+5. Open the chat panel , and click on the green circle to load the character you just created!
   
 ## Contributions  
   
