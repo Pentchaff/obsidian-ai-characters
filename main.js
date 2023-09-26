@@ -29,6 +29,7 @@ const LOAD_CHAT_BUTTON_ID = "load-ai-chat-button"
 
 
 const SAVED_CHATS_FOLDER_NAME = "Saved chats"
+const SAVED_PROMPTS_FOLDER_NAME = "Saved prompt"
 
 const WMO_CODE = { 
 "0": "Clear sky",
@@ -368,8 +369,8 @@ class ObsidianSettingTab extends PluginSettingTab {
     const allFolders = this.app.vault.getAllLoadedFiles().filter(f=>{return f.children}).filter(f=>{return f.children.length > 0 }).map(f=>{return f.path})
 
     new Setting(containerEl)
-      .setName('Prompt Folder')
-      .setDesc('Please choose the folder in which you want to save your prompts')
+      .setName('Characters Prompt Folder')
+      .setDesc('Please choose the folder in which you want to save your system prompts')
       .addDropdown(dd => {
         dd.addOptions(allFolders)
         dd.setValue(this.plugin.settings.promptFolderIndex)
@@ -378,7 +379,7 @@ class ObsidianSettingTab extends PluginSettingTab {
             this.plugin.settings.promptFolder = allFolders[parseInt(value)]
             await this.plugin.saveSettings();
         });
-      })
+    })
 
 
 
@@ -455,6 +456,19 @@ class ObsidianSettingTab extends PluginSettingTab {
             })
             src.containerEl.addClass("city-search")
         })
+
+    new Setting(containerEl)
+      .setName('Custom Prompts Folder')
+      .setDesc('Please choose the folder in which you want to save your custom prompts')
+      .addDropdown(dd => {
+        dd.addOptions(allFolders)
+        dd.setValue(this.plugin.settings.customPromptsFolder)
+        dd.onChange(async (value) => {
+            //this.plugin.settings.promptFolderIndex = value;
+            this.plugin.settings.customPromptsFolder = allFolders[parseInt(value)]
+            await this.plugin.saveSettings();
+        });
+    })
 
     
     /*
@@ -675,9 +689,48 @@ class ChatPanel extends ItemView {
 
   openFileSuggester() {
     // open file suggestion modal
-    if(!this.fileSelector) this.fileSelector = new FileSelectionModal(this.plugin.app, this);
+    if(!this.fileSelector) this.fileSelector = new FileSelectionModal(app, this);
     this.fileSelector.open();
   }
+
+  async openFolderSuggester() {
+    // open folder suggestion modal
+    if(!this.folderSelector){
+      this.folderSelector = new FolderSelectionModal(app, this);
+    }
+    this.folderSelector.open();
+  }
+
+  async openPromptSuggester() {
+    if (!this.promptSelector){
+        if(!this.plugin.settings.customPromptsFolder){
+            return;
+        }
+
+        const allPrompts = app.vault.getMarkdownFiles().filter(f=>{return f.path.includes(this.plugin.settings.customPromptsFolder)})
+
+        if (!allPrompts || allPrompts.length === 0){
+            return
+        }
+
+        this.promptSelector = new PromptSelectionModal(app,this);
+    }
+    this.promptSelector.open();
+  }
+
+    adjustScrollHeight(el,view){
+
+        const maxHeight = el.parentElement.parentElement.offsetHeight * 0.4
+
+        if (el.scrollHeight > maxHeight) {
+            el.parentElement.style.height = maxHeight + "px";
+            el.style.overflowY = "auto";// active le scroll vertical
+        }else {
+            el.style.height = view.initHeight + 'px';
+            el.style.height = el.scrollHeight + "px";
+            el.parentElement.style.height = el.scrollHeight + "px"
+        }
+    }
 
   async onOpen(){
     this.loadChat()
@@ -834,7 +887,7 @@ class ChatPanel extends ItemView {
     //const previousMessages = loadedCharacter.loadChat(loadedCharacter.lastOpenedChatID)
 
     this.textarea.addEventListener("keyup", (event) => {
-      if(!["[", "/"].includes(event.key) ) return; // skip if key is not [ or /
+      if(!["[", "/",":"].includes(event.key) ) return; // skip if key is not [ or /
       const caret_pos = this.textarea.selectionStart;
       // if key is open square bracket
       if (event.key === "[") {
@@ -844,34 +897,37 @@ class ChatPanel extends ItemView {
           this.openFileSuggester();
           return;
         }
-      }else{
+      }
+      else if (event.key === "/"){
+        // get caret position
+        // if this is first char or previous char is space
+        if (this.textarea.value.length === 1 || this.textarea.value[caret_pos - 2] === " ") {
+          // open folder suggestion modal
+          this.openFolderSuggester();
+          return;
+        }
+      }
+      else if (event.key === ":"){
+        if (this.textarea.value[caret_pos -2] === ":"){
+            this.openPromptSuggester();
+            return;
+        }
+      }
+      else{
         this.brackets_ct = 0;
       }
     });
 
     // Capture le textarea
     this.textarea = document.getElementById("user-input");
-    const initHeight = document.getElementById("send-button").scrollHeight
-    let previousScrollHeight = initHeight;
+    this.initHeight = document.getElementById("send-button").scrollHeight
+    let previousScrollHeight = this.initHeight;
 
-    this.textarea.style.height = initHeight + 'px';
+    this.textarea.style.height = this.initHeight + 'px';
 
-    function adjustScrollHeight(){
-
-        const maxHeight = this.parentElement.parentElement.offsetHeight * 0.4
-
-        if (this.scrollHeight > maxHeight) {
-            this.parentElement.style.height = maxHeight + "px";
-            this.style.overflowY = "auto";// active le scroll vertical
-        }else {
-            this.style.height = initHeight + 'px';
-            this.style.height = this.scrollHeight + "px";
-            this.parentElement.style.height = this.scrollHeight + "px"
-        }
-    }
 
     // Écouteur d'événements pour le changement de taille
-    this.textarea.addEventListener("input", adjustScrollHeight);
+    this.textarea.addEventListener("input", this.adjustScrollHeight(this.textarea,this));
 
     this.textarea.addEventListener("keyup", function(event) {
         
@@ -1092,6 +1148,41 @@ class AICharacter {
 
     }
 
+    parseForFolders(text){
+        if (!text){
+            return
+        }
+
+        const FileFinder = new RegExp(/(?: \/|^\/)([\s\S]*?)\/ /g)
+
+        const allFolders = [...text.matchAll(FileFinder)]
+
+        if (!allFolders || allFolders.length === 0){
+            return
+        }
+        
+
+        const allFolderNames = allFolders.map(m=>m[1])
+
+        let allDocs = []
+
+        allFolderNames.forEach(folderName => {
+            let allVaultFolders = app.vault.getAllLoadedFiles().filter(f=>{
+                const folderRegexp = new RegExp(`^${folderName}`)
+                return f.path.match(folderRegexp)
+            })
+            allDocs = [...allDocs,...allVaultFolders]
+        })
+
+        if (allDocs.length === 0){
+            return
+        }
+
+        return new Set(allDocs)
+
+
+    }
+
     async applyThinkState(messageContainer){
         document.querySelector(`${CHARACTER_IMAGE_ID}`)
     }
@@ -1128,15 +1219,22 @@ class AICharacter {
         }
 
 
-        let docsFound = await this.parseForDocuments(message,depth)
+
+        let docLinks = await this.parseForDocuments(message,depth) || []
+        let fileDocs = this.parseForFolders(message, depth) || []
+
+        let docsFound = new Set([...docLinks,...fileDocs])
+
         if (docsFound){
+            docsFound = [...docsFound]
             docsFound = docsFound.map(async doc=>{
                 return new Document({text: await app.vault.read(doc)})
             })
         }
-        const docsLoaded = await Promise.all(docsFound)
+        const docsLoaded = await Promise.all(docsFound)        
 
         this.addDocumentsToChatIndex(docsLoaded,this.ongoingChat)
+        
 
         return 
         
@@ -1927,6 +2025,64 @@ class FileSelectionModal extends FuzzySuggestModal{
     }
 }
 
+class FolderSelectionModal extends FuzzySuggestModal {
+  constructor(app, view) {
+    super(app);
+    this.app = app;
+    this.view = view;
+    this.setPlaceholder("Type the name of a folder...");
+  }
+  getItems() {
+    return app.vault.getAllLoadedFiles().filter(f=>{return f.children}).map(m=>{
+        return m.path
+    });
+  }
+  getItemText(item) {
+    return item;
+  }
+  onChooseItem(folder) {
+    this.view.insert_selection(folder + "/ ");
+  }
+}
+
+class PromptSelectionModal extends FuzzySuggestModal {
+  constructor(app, view) {
+    super(app);
+    this.app = app;
+    this.view = view;
+    this.setPlaceholder("Type the name of a prompt...");
+    this.options = app.vault.getMarkdownFiles().filter(f=>{
+        return f.path.includes(this.view.plugin.settings.customPromptsFolder);
+    })
+  }
+  getItems() {
+    return this.options
+  }
+  getItemText(item) {
+    return item.basename;
+  }
+  async onChooseItem(folder) {
+    let newPrompt = await app.vault.read(folder)
+
+    //Use Obsidian Template parser on the prompt
+    
+    //Check if quickAdd is available and if so parse the prompt to fill it 
+    const quickAddPlugin = this.app.plugins.plugins.quickadd
+    if (quickAddPlugin){
+        newPrompt = await quickAddPlugin.api.format(newPrompt)
+    }
+    //Check if Templater is available and if so parse the prompt to fill it
+    const templaterPlugin = this.app.plugins.plugins["templater-obsidian"];
+    if (templaterPlugin){
+        const cfg = templaterPlugin.templater.create_running_config(folder,folder,3)
+        newPrompt = await templaterPlugin.templater.parse_template(cfg,newPrompt)
+    }
+
+
+    this.view.insert_selection(newPrompt);
+    this.view.adjustScrollHeight(document.getElementById("user-input"),this.view)
+  }
+}
 
 
 module.exports = ObsidianPlugin;

@@ -60,7 +60,7 @@ body {
   min-height: 50px;
   aspect-ratio: 1/1;
   margin: auto;
-  background-color: aquamarine;
+  background-color: var(--color-accent);
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -97,7 +97,7 @@ textarea {
 
 #send-button {
   width: 10%;
-  background-color: blue; /* Fond bleu */
+  background-color: var(--color-accent); /* Fond bleu */
   border: none;
   transition: all 0.3s ease; /* Transition pour hover */
   border-radius: 20%;
@@ -106,11 +106,11 @@ textarea {
   margin: 5px;
 }
 textarea::-webkit-scrollbar {
-  background-color: #80808042; /* Couleur du thumb */
+  background-color: var(--color-accent); /* Couleur du thumb */
   border-radius: 10px;
 }
 textarea::-webkit-scrollbar-thumb {
-  background-color: blue; /* Couleur du thumb */
+  background-color: var(--color-accent); /* Couleur du thumb */
   border-radius: 10px;
 }
 
@@ -123,7 +123,7 @@ textarea::-webkit-scrollbar-thumb {
 }
 
 .robot-message {
-  background-color: lightgrey;
+  background-color: var(--color-base-25);
   border-radius: 5px;
   padding: 5px;
   margin-bottom: 5px;
@@ -131,15 +131,10 @@ textarea::-webkit-scrollbar-thumb {
   max-width: 90%;
   margin-right: auto;
   display: inline-flex;
-  color: black;
+  /*color: black;*/
 }
 .user-message {
-  background: linear-gradient(
-    132deg,
-    rgba(31, 20, 222, 1) 0%,
-    rgba(65, 81, 255, 1) 39%,
-    rgba(0, 212, 255, 1) 100%
-  ); /* Dégradé de bleu à violet */
+  background: linear-gradient( 132deg, var(--color-accent) 0%, var(--color-accent-2) 39%, var(--color-accent-2) 100% ); /* Dégradé de bleu à violet */
   max-width: 90%;
   color: white; /* Texte en blanc */
   text-align: left; /* Alignement du texte à droite */
@@ -163,7 +158,7 @@ textarea::-webkit-scrollbar-thumb {
   display: flex;
   width: 5px;  
   height: 5px;  
-  background-color: #000;  
+  background-color: var(--color-base-100);  
   border-radius: 50%;  
   margin: 0 2px;  
   animation: pulse 1s infinite; 
@@ -225,7 +220,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 #character-pic-wrapper {
     height: 50px;
     margin: 10px;
-    background-color: aquamarine;
+    background-color: var(--color-green);
     border-radius: 50%;
     overflow: hidden;
     display: flex;
@@ -254,7 +249,7 @@ div#character-description-wrapper {
     align-items: center;
     justify-content: flex-start;
     flex-direction: row;
-    border: rgb(155, 155, 168);
+    border: var(--color-base-50);
     border-style: solid;
     border-width: 1px;
     margin-bottom: 5px;
@@ -262,7 +257,7 @@ div#character-description-wrapper {
 }
 
 .character-item:hover {
-  background: aliceblue;
+  background: var(--color-base-25);
   cursor: pointer;
 }
 
