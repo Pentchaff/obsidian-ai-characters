@@ -27,17 +27,18 @@ Required plugins:
 📁**File loading**
 - Feed the discussion with files from your vault , adding them to the context of the discussion
 
-📑**Prompt saving** (TODO)
-- Save your favorite prompts with variables that you can populate using quickAdd 
+📑**Prompt saving**
+- Save your favorite prompts with variables that you can populate using [quickAdd](https://github.com/chhoumann/quickadd) or [Templater](https://github.com/SilentVoid13/Templater)
   
 ## Installation  
 
 I will make an official obsidian plugin request soon, once I am more confident in the value-add of the plugin and I look into several cosmetics. 
 
-1. Download the plugin ZIP file from the [GitHub repository](https://github.com/Pentchaff/obsidian-ai-characters/).  
+1. Download the plugin ZIP file from the [GitHub repository](https://github.com/Pentchaff/obsidian-ai-characters/).  (arrow to the right of the green button "Code" > download zip)
 2. Unzip the file and place it in the Obsidian plugins folder ( final path should look like this:  **path_to_your_obsidian_vault/.obsidian/Plugins/obsidian-ai-characters** )
 3. Activate the plugin in Obsidian settings
-4. Load an OpenAI API key in the settings (key will be stored in the settings on your local machine) 
+4. Load an OpenAI API key in the settings (key will be stored in the settings on your local machine). For this go to [platform.openai](https://platform.openai.com/account/api-keys), login if needed and create a new secret key
+   [NOTE] You will have access to GPT-4 once you will have done your 1st paid transaction on OpenAi API. 
   
 ## Usage  
   
