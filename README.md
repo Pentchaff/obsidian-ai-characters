@@ -37,7 +37,8 @@ I will make an official obsidian plugin request soon, once I am more confident i
 2. Unzip the file and place it in the Obsidian plugins folder ( final path should look like this:  **path_to_your_obsidian_vault/.obsidian/Plugins/obsidian-ai-characters** )
 3. Activate the plugin in Obsidian settings
 4. Load an OpenAI API key in the settings (key will be stored in the settings on your local machine). For this go to [platform.openai](https://platform.openai.com/account/api-keys), login if needed and create a new secret key
-   [NOTE] You will have access to GPT-4 once you will have done your 1st paid transaction on OpenAi API. 
+> ![NOTE]
+> You will have access to GPT-4 once you will have done your 1st paid transaction on OpenAi API. 
   
 ## Usage  
   
