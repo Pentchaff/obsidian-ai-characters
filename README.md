@@ -9,8 +9,7 @@ This is still a bit clunky but it works and I hope people will be interested in 
 Required plugins:
 - The plugin is pretty much standalone for basic usage ( storing characters and interacting with them)
 - [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) is recommended for the assistant to be able to help you with your tasks
-- QuickAdd is required for advanced prompt templates
-- Text Extractor plugin is required if you want to feed the Ai with pdf documents
+- [Text Extractor](https://github.com/scambier/obsidian-text-extractor) plugin is required if you want to feed the Ai with pdf documents
 ## Key Features  
 
 🤖**System prompt saving**
@@ -28,7 +27,7 @@ Required plugins:
 - Feed the discussion with files from your vault , adding them to the context of the discussion
 
 📑**Prompt saving**
-- Save your favorite prompts with variables that you can populate using [quickAdd](https://github.com/chhoumann/quickadd) or [Templater](https://github.com/SilentVoid13/Templater)
+- Save your favorite prompts with variables that you can populate using [QuickAdd](https://github.com/chhoumann/quickadd) or [Templater](https://github.com/SilentVoid13/Templater)
   
 ## Installation  
 
