@@ -725,9 +725,10 @@ class ChatPanel extends ItemView {
         if (el.scrollHeight > maxHeight) {
             el.parentElement.style.height = maxHeight + "px";
             el.style.overflowY = "auto";// active le scroll vertical
-        }else {
-            el.style.height = view.initHeight + 'px';
-            el.style.height = el.scrollHeight + "px";
+        }
+        else{
+            el.parentElement.style.height = view.initHeight + 'px';
+            //el.style.height = el.scrollHeight + "px";
             el.parentElement.style.height = el.scrollHeight + "px"
         }
     }
