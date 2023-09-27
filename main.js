@@ -828,7 +828,7 @@ class ChatPanel extends ItemView {
     let chatInput = document.createElement('div');
     chatInput.id = 'chat-input';
     this.textarea = document.createElement('textarea');
-    this.textarea.placeholder = "[[ to start loading files, Ctrl + Enter to send message"
+    this.textarea.placeholder = "Shortcuts: type [[ + file, / + folder, :: + prompt, Ctrl + Enter = send"
     this.textarea.id = 'user-input';
     let sendButton = document.createElement('button');
     sendButton.id = 'send-button';
