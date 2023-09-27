@@ -80,8 +80,7 @@ body {
   width: 100%;
 }
 textarea {
-  /*width: 90%;
-  height: 95%;*/
+  height: 100%;
   flex-grow: 1;
   margin-left: 1%;
   resize: none;

@@ -886,55 +886,63 @@ class ChatPanel extends ItemView {
 
     //const previousMessages = loadedCharacter.loadChat(loadedCharacter.lastOpenedChatID)
 
-    this.textarea.addEventListener("keyup", (event) => {
-      if(!["[", "/",":"].includes(event.key) ) return; // skip if key is not [ or /
-      const caret_pos = this.textarea.selectionStart;
-      // if key is open square bracket
-      if (event.key === "[") {
-        // if previous char is [
-        if(this.textarea.value[caret_pos - 2] === "["){
-          // open file suggestion modal
-          this.openFileSuggester();
-          return;
-        }
-      }
-      else if (event.key === "/"){
-        // get caret position
-        // if this is first char or previous char is space
-        if (this.textarea.value.length === 1 || this.textarea.value[caret_pos - 2] === " ") {
-          // open folder suggestion modal
-          this.openFolderSuggester();
-          return;
-        }
-      }
-      else if (event.key === ":"){
-        if (this.textarea.value[caret_pos -2] === ":"){
-            this.openPromptSuggester();
-            return;
-        }
-      }
-      else{
-        this.brackets_ct = 0;
-      }
-    });
-
+    
     // Capture le textarea
     this.textarea = document.getElementById("user-input");
     this.initHeight = document.getElementById("send-button").scrollHeight
     let previousScrollHeight = this.initHeight;
 
-    this.textarea.style.height = this.initHeight + 'px';
+    this.textarea.parentElement.style.height = this.initHeight + 'px';
 
 
     // Écouteur d'événements pour le changement de taille
-    this.textarea.addEventListener("input", this.adjustScrollHeight(this.textarea,this));
+    const view = this
+    
+    this.textarea.addEventListener("input", function(event) {
+        view.adjustScrollHeight(view.textarea,view);
+    });
 
-    this.textarea.addEventListener("keyup", function(event) {
+    function keyboardEventHandler(event){
+        if(!["[", "/",":","Enter"].includes(event.key) ) return; // skip if key is not [ or /
+        const caret_pos = view.textarea.selectionStart;
         
         if (event.key === "Enter" && event.ctrlKey === true) {
             event.preventDefault();
             sendUserMessage();
+            return;
         }
+        // if key is open square bracket
+        if (event.key === "[") {
+            // if previous char is [
+            if(view.textarea.value[caret_pos - 2] === "["){
+                // open file suggestion modal
+                view.openFileSuggester();
+                return;
+            }
+        }
+        else if (event.key === "/"){
+            // get caret position
+            // if this is first char or previous char is space
+            if (view.textarea.value.length === 1 || view.textarea.value[caret_pos - 2] === " ") {
+                // open folder suggestion modal
+                view.openFolderSuggester();
+                return;
+            }
+        }
+        else if (event.key === ":"){
+            if (view.textarea.value[caret_pos -2] === ":"){
+                view.openPromptSuggester();
+                return;
+            }
+        }
+        else{
+            view.brackets_ct = 0;
+        }
+
+    }
+
+    this.textarea.addEventListener("keyup", function(event) {
+        keyboardEventHandler(event)
     });
 
     sendButton = document.getElementById("send-button");
