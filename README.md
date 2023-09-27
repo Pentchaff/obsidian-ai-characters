@@ -10,6 +10,12 @@ Required plugins:
 - The plugin is pretty much standalone for basic usage ( storing characters and interacting with them)
 - [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) is recommended for the assistant to be able to help you with your tasks
 - [Text Extractor](https://github.com/scambier/obsidian-text-extractor) plugin is required if you want to feed the Ai with pdf documents
+
+
+# Similar plugins
+- [Smart connections](https://github.com/brianpetro/obsidian-smart-connections) : Huge source of inspiration for me, and should work well together !
+- [ODIN](https://github.com/memgraph/odin) - in the process of testing it but it looks like there is a very strong team behind and a bunch of very cool features
+
 ## Key Features  
 
 🤖**System prompt saving**
