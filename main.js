@@ -1410,7 +1410,7 @@ class AICharacter {
     getImageLink(){
 
         try{
-            let res = this.templateText.match(/\[\[(.*?\.png|jpg])\]\]/g)[0].replace("\[\[","").replace("\]\]","")
+            let res = this.templateText.match(/\[\[(.*?\.png|.*?\.jpg)\]\]/g)[0].replace("\[\[","").replace("\]\]","")
             const basePath= this.template.path
             const imagePath = path.join(basePath, "..",res)
 
