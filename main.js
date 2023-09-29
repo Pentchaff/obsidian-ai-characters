@@ -68,8 +68,13 @@ async function getCities(searchQuery){
         return
     }
     weatherUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${searchQuery}&count=10&language=en&format=json`
-
-    const resp = await fetch(weatherUrl)
+    let resp
+    try {
+        resp = await fetch(weatherUrl)
+    }catch (error) {
+        console.log("Issue fetching Weather data:"+ error)
+        return
+    }
     const respJSON = await resp.json() 
     if (!respJSON.results){
         console.log("No results found")
@@ -1118,6 +1123,7 @@ class AICharacter {
                             }
                         }
                     }
+                    return doc[0]
                 }
                 else if (checkifExt[0] === ".pdf"){
                     const doc = await app.vault.getAllLoadedFiles().filter(f=>{return f.path.includes(docName)})
