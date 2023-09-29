@@ -53,10 +53,9 @@ I will make an official obsidian plugin request soon, once I am more confident i
   
 1. Open Obsidian and create a new folder to store your templates
 2. Create a character template in the newly created folder (important so the folder appears in the list of options in the settings)
-	- Character template have 3 mandatory sections, each of them MUST be a H1 title : # Description # System prompt # Image
-4. In the Settings, point to this folder so the program knows where to find the files 
-5. Create a character template based on the example provided
-6. Open the chat panel , and click on the green circle to load the character you just created!
+	- Character template have 3 mandatory sections, each of them MUST be a H1 title (cf the [example](https://github.com/Pentchaff/obsidian-ai-characters/blob/main/Example%20characters/No%20bullshit%20Dan.md) "No bullshit Dan.md" in the folder "Example characters"
+3. In the Settings, point to this folder so the program knows where to find the files 
+4. Open the chat panel , and click on the green circle to load the character you just created!
   
 ## Contributions  
   
