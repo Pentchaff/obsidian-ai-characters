@@ -15,6 +15,7 @@ Required plugins:
 # Similar plugins
 - [Smart connections](https://github.com/brianpetro/obsidian-smart-connections) : Huge source of inspiration for me, and should work well together !
 - [ODIN](https://github.com/memgraph/odin) - in the process of testing it but it looks like there is a very strong team behind and a bunch of very cool features
+- [Khoj](https://github.com/khoj-ai/khoj) - great to interact with you whole vault at once
 
 ## Key Features  
 
