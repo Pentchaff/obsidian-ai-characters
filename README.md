@@ -42,17 +42,21 @@ I will make an official obsidian plugin request soon, once I am more confident i
 
 1. Download the plugin ZIP file from the [GitHub repository](https://github.com/Pentchaff/obsidian-ai-characters/).  (arrow to the right of the green button "Code" > download zip)
 2. Unzip the file and place it in the Obsidian plugins folder ( final path should look like this:  **path_to_your_obsidian_vault/.obsidian/Plugins/obsidian-ai-characters** )
-3. Activate the plugin in Obsidian settings
-4. Load an OpenAI API key in the settings (key will be stored in the settings on your local machine). For this go to [platform.openai](https://platform.openai.com/account/api-keys), login if needed and create a new secret key
+> [!Attention]
+> Name of the plugin folder MUST be "obsidian-ai-characters" otherwise it will not load correctly
+4. Activate the plugin in Obsidian settings
+5. Load an OpenAI API key in the settings (key will be stored in the settings on your local machine). For this go to [platform.openai](https://platform.openai.com/account/api-keys), login if needed and create a new secret key
 > ![NOTE]
 > You will have access to GPT-4 once you will have done your 1st paid transaction on OpenAi API. 
   
 ## Usage  
   
 1. Open Obsidian and create a new folder to store your templates
-2. In the Settings, point to this folder so the program knows where to find the files 
-4. Create a character template based on the example provided
-5. Open the chat panel , and click on the green circle to load the character you just created!
+2. Create a character template in the newly created folder (important so the folder appears in the list of options in the settings)
+	- Character template have 3 mandatory sections, each of them MUST be a H1 title : # Description # System prompt # Image
+4. In the Settings, point to this folder so the program knows where to find the files 
+5. Create a character template based on the example provided
+6. Open the chat panel , and click on the green circle to load the character you just created!
   
 ## Contributions  
   
