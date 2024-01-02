@@ -43,7 +43,11 @@ body {
 #buttons-bar-id {
     position: absolute;
     right: 5%;
+}
 
+#buttons-bar-left-id {
+    position: absolute;
+    left: 5%;
 }
 
 #save-chat-id:hover, #create-memory-button-id:hover {
@@ -261,19 +265,19 @@ div#character-description-wrapper {
 }
 
 
-#load-ai-chat-button {
+/*#load-ai-chat-button {
     height: 20px;
     aspect-ratio: 1/1;
     display: block;
     position: absolute;
     left: 5%;
-}
+}*/
 
 
-#load-ai-chat-button:hover {
-
+#load-ai-chat-button:hover, #create-gpt-button:hover {
     cursor:pointer;
 }
+
 
 .saved-chat-item {
     display: flex;
@@ -301,4 +305,61 @@ div#character-description-wrapper {
 
 .modal-content>ul {
     padding: 0;
+}
+
+/*------ YES NO MODAL --------*/
+
+.YesNoBtns {
+    display: flex;
+    flex-direction: row;
+}
+
+.YesBtnModal {
+    background: var(--link-color);
+    color: var(--text-on-accent);
+}
+
+.NoBtnModal {
+    background: var(--background-modifier-border);
+    color: var(--text-accent);
+}
+
+.YesBtnModal, .NoBtnModal {
+
+    margin: auto;
+    padding: 5px;
+    width: 30%;
+    text-align: center;
+    border-radius: 5px;
+}
+
+.YesBtnModal:hover, .NoBtnModal:hover {
+  cursor: pointer;
+}
+
+.chara-setting-prompt-wrapper {
+    display: flex;
+    flex-direction: row;
+    background: var(--background-secondary);
+    border-radius: 5px;
+    height: 300px;
+    overflow-x: scroll;
+    align-items: center;
+}
+
+.chara-setting-prompt-box-update {
+    background: var(--link-unresolved-color);
+    height: 10%;
+    padding: 5px;
+    color: var(--background-secondary);
+    border-radius: inherit;
+}
+
+.chara-setting-prompt-box-update:hover {
+  cursor: pointer;
+}
+
+.chara-setting-prompt-box.chara-setting-prompt-box-openai {
+    background: var(--color-base-25);
+    color: var(--background-modifier-border-focus);
 }

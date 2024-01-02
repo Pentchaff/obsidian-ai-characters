@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "llamaindex": "^0.0.23",
+    "openai": "^4.24.1",
     "pdf-parse": "^1.1.1"
   }
 }

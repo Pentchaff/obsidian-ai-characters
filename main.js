@@ -1,14 +1,19 @@
 const { Plugin, Notice, TFile, PluginSettingTab, Setting,DropdownComponent, ItemView, WorkspaceLeaf , setIcon , setTooltip, Modal, FuzzySuggestModal, Scope, loadPdfJs} = require('obsidian');
 const fs = require("fs/promises");
 const path = require("path");
+const { create } = require('domain');
 // Get the vault absolute path
 const vaultBasePath = app.vault.getRoot().vault.adapter.getBasePath();
 const pluginBasePath = path.join(vaultBasePath,".obsidian","plugins","obsidian-ai-characters")
 const pathToLlama  = path.join(pluginBasePath,"node_modules","llamaindex","dist","index.js")
+const pathToOpenAI = path.join(pluginBasePath,"node_modules","openai","index.js")
 
-const {Document,VectorStoreIndex, OpenAI, SimpleChatEngine, serviceContextFromDefaults, serviceContextFromServiceContext, ContextChatEngine, OpenAIEmbedding} = require(pathToLlama)
+const {Document,VectorStoreIndex, SimpleChatEngine, serviceContextFromDefaults, serviceContextFromServiceContext, ContextChatEngine, OpenAIEmbedding} = require(pathToLlama)
+const OpenAI = require(pathToLlama).OpenAI
+const OpenAIOff = require(pathToOpenAI).OpenAI
+
 //const {Document,VectorStoreIndex, OpenAI, SimpleChatEngine, serviceContextFromDefaults, ContextChatEngine} = require("llamaindex")
-
+let VARIABLES_FOR_QUICKADD = {}
 
 const CHARACTER_IMAGE_ID = "character-image"
 const CHARACTER_PIC_ID = "character-pic"
@@ -19,12 +24,15 @@ const THINK_STATE_CLASS = "is-thinking"
 const ROBOT_MESSAGE_CLASS = "robot-message"
 const USER_MESSAGE_CLASS = "user-message"
 const ROBOT_TYPING_ID = "robot-typing"
+const OPENAI_ID_TAG = "openAI_ID"
 
 
 
 const BUTTONS_BAR_ID = "buttons-bar-id"
+const BUTTONS_BAR_LEFT_ID = "buttons-bar-left-id"
 const SAVE_CHAT_ID = "save-chat-id"
 const CREATE_MEMORY_BUTTON_ID = "create-memory-button-id"
+const CREATE_GPT_BUTTON_ID = "create-gpt-button"
 const LOAD_CHAT_BUTTON_ID = "load-ai-chat-button"
 
 
@@ -101,6 +109,9 @@ async function getWeatherData(lat,long){
 const ALL_AVAILABLE_OPENAI_MODELS = [
     "gpt-3.5-turbo",
     "gpt-3.5-turbo-16k",
+    "gpt-4-1106-preview",
+    "gpt-4-vision-preview",
+    "gpt-4-32k",
     "gpt-4"
     ]
 //"gpt-4-32k"
@@ -115,6 +126,8 @@ class ObsidianPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
+        VARIABLES_FOR_QUICKADD.userName = this.settings.userName
+
         this.registerView("chat-panel", (leaf) => new ChatPanel(leaf,this));
         //this.loadStylesheet('styles.css');
         this.addRibbonIcon('messages-square', 'Open AI Chat Panel', () => {
@@ -122,12 +135,30 @@ class ObsidianPlugin extends Plugin {
             //adjustHeight()
         });
         
-        if(this.app.workspace.getLeavesOfType("chat-panel").length > 0){
+        /*if(this.app.workspace.getLeavesOfType("chat-panel").length > 0){
             await app.workspace.revealLeaf(app.workspace.getLeavesOfType('chat-panel')[0])
             //app.workspace.onLayoutReady(adjustHeight);
         }
-
+        */
+       
         this.addSettingTab(new ObsidianSettingTab(this.app, this));
+
+        this.OpenAIObject = new OpenAIOff({
+            "apiKey": this.settings.apiKey,
+            "dangerouslyAllowBrowser": true 
+        })
+        //Opening reference to quickAdd that is required to run advanced templating and functions
+
+        this.api = new characterAIAPI(this.app,this)
+
+        try {
+
+            this.quickAddAPI = this.app.plugins.plugins.quickadd.api
+
+        } catch {
+            new Notice("QuickAdd is necessary in case you want to use macros and templates for your characters! Please download and install it, this is a great plugin :)")
+        }
+
 
         //app.workspace.onLayoutReady();
         // TODO: Ajouter d'autres fonctionnalités comme le Side Panel, l'interaction avec les prompts, etc.
@@ -170,8 +201,11 @@ class ObsidianPlugin extends Plugin {
 
             let loadedChara = this.settings.loadedcharacters
             const createCharacterPromises = toLoad.map(async (chara)=>{
-                const newChar = new AICharacter(chara,this)
+
+                let newChar = new OpenAICharacter(chara,this)
+                newChar = await newChar.checkIfOpenAi()
                 await newChar.init()
+
                 if (newChar.basesystemPrompt && newChar.imgSrc){
                     loadedChara.push(newChar)
                     return newChar
@@ -242,11 +276,41 @@ class ObsidianPlugin extends Plugin {
 
         }
 
-        return {"messages": chatHistory, "file":chatHistoryfile}
+        const outputChat = {"messages": chatHistory, "file":chatHistoryfile}
+
+        const filecache = await this.app.metadataCache.getFileCache(chatHistoryfile)
+
+        if (filecache.frontmatter && filecache.frontmatter.openaiThreadID){
+            outputChat.threadID = filecache.frontmatter.openaiThreadID
+        }
+
+
+        return outputChat
 
 
     }
   // TODO: Ajouter d'autres méthodes pour gérer les interactions, le Side Panel, etc.
+    async addOrUpdateFrontmatter(inputFile, newKey, newValue) {
+        const vault = inputFile.vault;
+        let fileContents = await vault.read(inputFile);
+
+        // Regex to find frontmatter block
+        const frontmatterRegex = /---\s*[\s\S]*?\s*---/;
+        let newFrontmatter = `---\n${newKey}: ${newValue}\n`;
+
+        if (frontmatterRegex.test(fileContents)) {
+            // Update existing frontmatter
+            fileContents = fileContents.replace(frontmatterRegex, (match) => {
+                return match.replace(/(---\s*\n)/, `$1${newKey}: ${newValue}\n`);
+            });
+        } else {
+            // Create new frontmatter block
+            fileContents = `${newFrontmatter}---\n\n${fileContents}`;
+        }
+
+        // Write the updated content back to the file
+        await vault.modify(inputFile, fileContents);
+    }
 }
 
 function adjustHeight() {
@@ -369,12 +433,12 @@ class ObsidianSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'AI Characters in Obsidian' });
+    containerEl.createEl('h2', { text: 'AI Characters settings' });
 
     const allFolders = this.app.vault.getAllLoadedFiles().filter(f=>{return f.children}).filter(f=>{return f.children.length > 0 }).map(f=>{return f.path})
 
     new Setting(containerEl)
-      .setName('Characters Prompt Folder')
+      .setName('Characters prompt folder')
       .setDesc('Please choose the folder in which you want to save your system prompts')
       .addDropdown(dd => {
         dd.addOptions(allFolders)
@@ -389,7 +453,7 @@ class ObsidianSettingTab extends PluginSettingTab {
 
 
     new Setting(containerEl)
-      .setName('OpenAI API Key')
+      .setName('OpenAI API key')
       .setDesc('Please copy-paste your OpenAI API key here')
       .addText(text => text
         .setPlaceholder('sk-...')
@@ -413,7 +477,7 @@ class ObsidianSettingTab extends PluginSettingTab {
         })*/
 
     new Setting(containerEl)
-        .setName('DefaultModel')
+        .setName('Default model')
         .setDesc("Please select the OpenAI model you want to use by default")
         .addDropdown(dd=>{
             dd.addOptions(ALL_AVAILABLE_OPENAI_MODELS)
@@ -463,7 +527,7 @@ class ObsidianSettingTab extends PluginSettingTab {
         })
 
     new Setting(containerEl)
-      .setName('Custom Prompts Folder')
+      .setName('Custom prompts folder')
       .setDesc('Please choose the folder in which you want to save your custom prompts')
       .addDropdown(dd => {
         dd.addOptions(allFolders)
@@ -797,11 +861,18 @@ class ChatPanel extends ItemView {
     setTooltip(createMemoryButton,"Create memory")
 
 
+    let optionsBarLeft = document.createElement('div');
+    optionsBarLeft.id = BUTTONS_BAR_LEFT_ID
+
     let loadChatButton  = document.createElement('div');
     loadChatButton.id = LOAD_CHAT_BUTTON_ID
     setIcon(loadChatButton,"vertical-three-dots")
     setTooltip(loadChatButton,"Load a saved chat")
 
+    let createGPTbutton  = document.createElement('div');
+    createGPTbutton.id = CREATE_GPT_BUTTON_ID
+    setIcon(createGPTbutton,"hashtag")
+    setTooltip(createGPTbutton,"OpenAI GPT Settings")
 
     let characterName = document.createElement('div');
     characterName.id = CHARA_NAME_ID;
@@ -814,11 +885,14 @@ class ChatPanel extends ItemView {
     optionsBar.appendChild(saveChatButton)
     optionsBar.appendChild(createMemoryButton)
 
+    optionsBarLeft.appendChild(loadChatButton)
+    optionsBarLeft.appendChild(createGPTbutton)
 
     characterWrapper.appendChild(characterImage)
     characterWrapper.appendChild(characterName)
     characterWrapper.appendChild(optionsBar)
-    characterWrapper.appendChild(loadChatButton)
+    characterWrapper.appendChild(optionsBarLeft)
+
     characterImage.appendChild(img);
     
     chatPanel.appendChild(characterWrapper)
@@ -863,7 +937,18 @@ class ChatPanel extends ItemView {
         await selectCharacter.awaitTillChosen
         if (selectCharacter.submitted) {
 
-            selectCharacter.plugin.settings.defaultCharacter.loadCharacterInExistingPanel()
+            const chara = selectCharacter.plugin.settings.defaultCharacter
+
+            let greet = chara.greetingMessage
+
+            if (greet){
+                greet = { "messages":[{
+                    "role":"assistant",
+                    "content": await selectCharacter.plugin.quickAddAPI.format(greet,VARIABLES_FOR_QUICKADD)
+                }]}
+            }
+
+            chara.loadCharacterInExistingPanel(greet)
         }
 
     };
@@ -888,6 +973,35 @@ class ChatPanel extends ItemView {
 
         const chatHistory = await thisEl.plugin.parseChatHistory(selectedChat)
         selectChat.plugin.settings.defaultCharacter.loadCharacterInExistingPanel(chatHistory) 
+    }
+
+    const currentPlugin = this.plugin
+    createGPTbutton.onclick = async function() {
+        if (!currentPlugin.settings.defaultCharacter){
+            return
+        }
+
+        if(!currentPlugin.settings.defaultCharacter.openAI_id){
+            const yesNocreate = new YesNoModal(app,
+                currentPlugin,
+                "Create OpenAI GPT?", 
+                "Do you want to create a new GPT using OpenAI API? This will change the way chat responses are being made."
+            )
+            yesNocreate.open()
+            const isYesOrNo = await yesNocreate.awaitTillChosen
+            if(yesNocreate.yesOrNo == "Yes"){
+                currentPlugin.loadedCharacter =  new OpenAICharacter(currentPlugin.settings.defaultCharacter.template,currentPlugin,true)
+                await currentPlugin.loadedCharacter.init()
+                await currentPlugin.loadedCharacter.createOpenAICharacter()
+            }
+            return
+
+        }else {
+            const openAICharaModal = new OpenAICharaSettingsModal(currentPlugin.app,currentPlugin)
+
+            openAICharaModal.open() 
+        }
+
     }
 
     //const previousMessages = loadedCharacter.loadChat(loadedCharacter.lastOpenedChatID)
@@ -988,11 +1102,11 @@ class AICharacter {
         this.template = template
         this.name = template.basename;
         //this.History = History;
+        this.type = "OpenAICharacter"
         this.messageSentToday = 0;
         this.plugin = plugin
         this.savedChats = []
         //this.messages = loadmessageContext(History) -- will be saved in the settings on a per character basis
-        this.ongoingChat;
         this.documentsProvidedbyUser = new Set([])
         this.chatEmbedding = new OpenAIEmbedding({
             "additionalSessionOptions":{
@@ -1008,20 +1122,7 @@ class AICharacter {
                 "model":this.plugin.settings.chat_model
             }
         })
-        this.functionLibrary = {
-            "get_tasks": {
-                "args": "null",
-                "function": this.readTasksAndAddTheMostUrgentToContext
-            },
-            "add_current_date": {
-                "args": "null",
-                "function": this.addSystemPromptDate
-            },
-            "do_nothing": {
-                "args":"null",
-                "function": this.doNothing
-            }
-        }
+        
         
     }
     async init(){
@@ -1211,8 +1312,6 @@ class AICharacter {
 
         answerMessage = await this.ongoingChat.chat(message)
 
-
-
         return answerMessage
     }
 
@@ -1273,8 +1372,6 @@ class AICharacter {
 
 
     }
-
-
 
     async answerWithDocument(message){
         if (this.documentsProvidedbyUser.length > 0){
@@ -1363,7 +1460,6 @@ class AICharacter {
             return
         }
     }
-
     
     getDescription(){
 
@@ -1444,6 +1540,7 @@ class AICharacter {
 
         return sys_prompt
     }
+
     returnSysDate() {
 
         const currentDate = new Date()
@@ -1865,7 +1962,680 @@ class AICharacter {
 
 }
 
+class OpenAICharacter {
 
+    constructor (template,plugin, firstTimeLaunch=false){
+        this.template = template
+        this.name = template.basename;
+        //this.History = History;
+        this.plugin = plugin
+        this.firstTimeLaunch = firstTimeLaunch
+        this.openAI_id = ""
+        this.savedChats = []
+        //this.messages = loadmessageContext(History) -- will be saved in the settings on a per character basis
+        this.chatHistory = []
+        this.documentsProvidedbyUser = new Set([])
+        this.chatEmbedding = new OpenAIEmbedding({
+            "additionalSessionOptions":{
+                "apiKey": this.plugin.settings.apiKey,
+                "dangerouslyAllowBrowser": true
+            }})
+        this.Openai = this.plugin.OpenAIObject
+        /*this.chatModel = new OpenAI({
+            "additionalSessionOptions":{
+                "apiKey": this.plugin.settings.apiKey,
+                "dangerouslyAllowBrowser": true
+            },
+            "additionalChatOptions":{
+                "model":this.plugin.settings.chat_model
+            }
+        })*/
+    }
+
+    async checkIfOpenAi() {
+        this.openAI_id = await this.getOpenAiID()
+        if (!this.openAI_id){
+            return new AICharacter(this.template,this.plugin)
+        } else {
+            return this
+        }
+
+    }
+
+    async init(){
+        this.templateText = await this.plugin.app.vault.read(this.template)
+        this.basesystemPrompt = await this.loadSystemPrompt();
+        this.documentsProvidedbyUser = await this.parseForDocuments(this.basesystemPrompt,0)
+        this.imgSrc = this.getImageLink()
+        this.description = await this.getDescription()
+        this.greetingMessage = await this.getGreetingMessage()
+        
+    }
+
+    async createOpenAICharacter(){
+        const assistant = await this.Openai.beta.assistants.create({
+            name: this.name,
+            instructions: this.basesystemPrompt,
+            tools: [{type: "retrieval"}],
+            model: this.plugin.settings.chat_model
+
+        })
+
+        //Add the received OpenAI assistant ID to the frontmatter
+
+        this.plugin.addOrUpdateFrontmatter(this.template, OPENAI_ID_TAG, assistant.id)
+
+    }
+
+    async parseForDocuments(text,depth){
+        // depth represents to what extent the documents must be found 
+        //depth of 0 means docs links will be searched only on the input text
+        //depth of 1 means links are searched on input-text, + on the markdown files that link to it 
+        //etc...
+
+        depth = depth || 0
+
+        // Check for links [[]]
+
+        if (!text){
+            return
+        }
+        const allLinks = [...text.matchAll(/\[\[(.*?)\]\]/g)]
+        
+        let alldocLinks
+        let docPromises
+
+        if (allLinks.length > 0){
+            docPromises = allLinks.map(async (f) =>{
+                let docName =  f[1]
+
+                //Clear the alt text, keep only the base name
+                docName = docName.split("|")[0]
+                docName = docName.split("/").slice(-1)[0]
+
+
+                //check if extension in the document name
+                const checkifExt = docName.match(/\.\p{Ll}{2,3}$/u)
+                if (!checkifExt){
+                    const doc = await app.vault.getMarkdownFiles().filter(f=> {return f.basename === (docName)})
+                    if (!doc || doc.length === 0){
+                        console.log(`Couldn't find the file ${docName} in the vault`)
+                        return
+                    }
+
+                    if (depth > 0){
+                        const docText = await app.vault.read(doc[0])
+                        const subdocDocs = await this.parseForDocuments(docText,depth-1)
+                        if (alldocLinks){
+                            if (subdocDocs){
+                                alldocLinks = alldocLinks.concat(subdocDocs)
+                            }
+                        } else {
+                            if (subdocDocs){
+                                alldocLinks = subdocDocs
+                            }
+                        }
+                    }
+
+                    return doc[0]
+                }
+                else if (checkifExt[0] === ".md"){
+                    const doc = await app.vault.getMarkdownFiles().filter(f=> {return f.path.includes(docName)})
+                    if (!doc){
+                        return
+                    }
+
+                    if (depth > 0){
+                        const docText = await app.vault.read(doc[0])
+                        const subdocDocs = await this.parseForDocuments(docText,depth-1)
+                        if (alldocLinks){
+                            if (subdocDocs){
+                                alldocLinks = alldocLinks.concat(subdocDocs)
+                            }
+                        } else {
+                            if (subdocDocs){
+                                alldocLinks = subdocDocs
+                            }
+                        }
+                    }
+                    return doc[0]
+                }
+                else if (checkifExt[0] === ".pdf"){
+                    const doc = await app.vault.getAllLoadedFiles().filter(f=>{return f.path.includes(docName)})
+                    if (!doc){
+                        return
+                    }
+                    return doc[0]
+                }
+                else {
+                    return
+                }
+            })
+
+            const newDoc = await Promise.all(docPromises)
+            if (alldocLinks){
+                if (newDoc){
+                    alldocLinks = alldocLinks.concat(newDoc)
+                }
+            } else {
+                if (newDoc){
+                    alldocLinks = newDoc
+                }
+            }
+            //alldocLinks = new Set([...alldocLinks,...newDoc])
+
+        }
+
+
+
+
+        //Check for hyperlinks []()
+
+
+        if (alldocLinks){
+            return alldocLinks.filter(f=>f)
+        }
+
+    }
+
+    parseForFolders(text){
+        if (!text){
+            return
+        }
+
+        const FileFinder = new RegExp(/(?: \/|^\/)([\s\S]*?)\/ /g)
+
+        const allFolders = [...text.matchAll(FileFinder)]
+
+        if (!allFolders || allFolders.length === 0){
+            return
+        }
+        
+
+        const allFolderNames = allFolders.map(m=>m[1])
+
+        let allDocs = []
+
+        allFolderNames.forEach(folderName => {
+            let allVaultFolders = app.vault.getAllLoadedFiles().filter(f=>{
+                const folderRegexp = new RegExp(`^${folderName}`)
+                return f.path.match(folderRegexp)
+            })
+            allDocs = [...allDocs,...allVaultFolders]
+        })
+
+        if (allDocs.length === 0){
+            return
+        }
+
+        return new Set(allDocs)
+
+
+    }
+
+    async loadSystemPrompt(){
+        try{
+            let res = this.templateText.match(/(?:# System prompt\s(?:([\s\S]*?)))\s#|(?:# System prompt\s([\s\S]*))/)[1]
+            return res
+        }catch{
+            return
+        }
+    }
+
+    getImageLink(){
+
+        try{
+            let res = this.templateText.match(/\[\[(.*?\.png|.*?\.jpg)\]\]/g)[0].replace("\[\[","").replace("\]\]","")
+            const basePath= this.template.path
+            const imagePath = path.join(basePath, "..",res)
+
+
+            let vaultname = this.template.vault.getName()
+
+            //const picUrl = `obsidian://open?vault=${vaultname}&file=${encodeURI(imagePath).replace("/","%2F")}`
+
+            //const picUrl = `app://6cbcd443c39ac15a0ad932226bd5639b93bf/${path.join(vaultBasePath,imagePath).replace("\\","/")}?1693471063233`
+
+            const picUrl = this.template.vault.adapter.getResourcePath(imagePath)
+
+            return picUrl
+        }catch{
+            return
+        }
+        
+    }
+        
+    getDescription(){
+
+        try{
+            let res = this.templateText.match(/(?:# Description\s(?:([\s\S]*?)))\s#|(?:# Description\s([\s\S]*))/)[1]
+            return res
+        }catch{
+            return
+        }
+        
+    }
+
+    getGreetingMessage(){
+
+        try{
+            let res = this.templateText.match(/(?:# Greeting message\s(?:([\s\S]*?)))\s#|(?:# Greeting message\s([\s\S]*))/)[1]
+            return res.trim()
+        }catch{
+            return
+        }
+
+    }
+    
+    async getOpenAiID(){
+
+        try{
+            let res = await this.plugin.app.metadataCache.getFileCache(this.template).frontmatter[OPENAI_ID_TAG]
+            return res
+        }catch{
+            return
+        }
+
+    }
+
+    async loadCharacterInExistingPanel(chatHistoryProvided){
+        chatHistoryProvided = chatHistoryProvided || null;
+        //Accepts a chatHistoryObject
+        const panel = document.getElementById(CHAT_PANEL_ID)
+        if (panel) {
+
+            //Set picture
+            const pic = document.getElementById(CHARACTER_PIC_ID)
+            if (pic){
+                pic.src = this.imgSrc
+            }
+            //Set Name
+
+            const nameArea = document.getElementById(CHARA_NAME_ID)
+            if (nameArea){
+                nameArea.textContent = this.name
+            }
+
+            //Chat Area operations
+            const messageArea = document.getElementById(CHAT_MESSAGES_ID)
+
+
+
+            if (messageArea){
+                //Reset chat area
+
+                messageArea.innerHTML = ""
+
+                if (chatHistoryProvided){
+
+                    chatHistoryProvided.messages.forEach(message=>{
+                        if(message.role === "user"){
+                            addUserMessage(message.content)
+                        } else if (message.role === "assistant"){
+                            addRobotMessage(message.content)
+                        }
+                    })
+
+                    await this.loadChatProfileFromSavedChat(chatHistoryProvided)
+
+                } else {
+                    //Greet User
+                    const newMes = new RobotMessage()
+                    
+                    newMes.addRobotMessage(await this.greetUser())
+                }
+
+            }
+
+        }else{
+            new Notice("No character panel found!")
+        }
+    }
+
+    returnSysDate() {
+
+        const currentDate = new Date()
+        
+        return `Current date is ${currentDate}`
+    }
+
+    async buildSystemPrompt(){
+        const DateSystem = `\n ${this.returnSysDate()}`
+
+        let sys_prompt = await this.basesystemPrompt + DateSystem
+        //console.log(sys_prompt)
+
+        return sys_prompt
+    }
+
+    async buildFirstMessageInstructions(){
+        //TODO add a 1st message instructions editor including with the functions library
+        const baseInstructions = `\nStart off by your first message of the day to your user ${this.plugin.settings.userName}`
+        const DateSystem = `\n ${this.returnSysDate()}`
+
+        const mes =  DateSystem + baseInstructions
+
+        return {
+            role: "user",
+            content: mes
+        }
+    }
+
+    async greetUser(){
+        let baseInstructions = await this.buildFirstMessageInstructions()
+        this.chatHistory.push(baseInstructions)
+
+        this.ongoingChat = new OpenAIChat(this.app,this.plugin,this.openAI_id)
+        await this.ongoingChat.init()
+        let response = await this.ongoingChat.sendMessage(baseInstructions)
+
+        this.chatHistory.push(response)
+
+        return response.content
+    }
+
+    async processMessage(message){
+
+        //Check what type of message this is, and selects the right completion approach to complete.
+
+        if (!this.ongoingChat){
+            this.ongoingChat = new OpenAIChat(this.app,this.plugin,this.openAI_id)
+            await this.ongoingChat.init()
+        }
+        let answerMessage = ""
+
+        message = await this.plugin.quickAddAPI.format(message,VARIABLES_FOR_QUICKADD)
+
+        answerMessage = await this.ongoingChat.sendMessage({
+            "role": "user",
+            "content": message
+        })
+
+
+        return answerMessage.content
+    }
+
+        async loadChatProfileFromSavedChat(chatHistory){
+        //ChatHistory should be formatted as follows: {"messages":[{"role":"system/user/assistant","content":"bla bla bla"}],"file": TPfile}
+
+        //Load chat messages = Setup the system prompt + chathistory as the chat model
+        //Parse the messages and display them
+
+        //Add system date prompt that initiated the convo 
+
+        //And add a new system prompt that adds today's date 
+        //TODO: Mention  in context the memories that were created at the time of the chat vs at time of re-opening the chat
+
+        if (!chatHistory){
+            console.log("No chat history found")
+            return
+        }
+        
+        //const chatCreatedDate = moment(chatHistory.file.stat.ctime).format("YYYY-MM-DD hh:mm a")
+
+        //let sys_prompt = await this.basesystemPrompt + "\n Current date: " + chatCreatedDate
+        //sys_prompt = sys_prompt.trim()
+
+
+        let loadedChatHistory = []
+
+        chatHistory.messages.forEach(mes => {
+            loadedChatHistory.push(mes)
+        })
+
+
+        if (this.ongoingChat) {
+            this.ongoingChat.chatHistory = loadedChatHistory
+        } else {
+            this.ongoingChat = new OpenAIChat(this.app,this.plugin,this.openAI_id)
+            if (chatHistory.threadID){
+                this.ongoingChat.threadID = chatHistory.threadID
+            }
+            this.ongoingChat.chatHistory = loadedChatHistory
+            await this.ongoingChat.init()   
+
+
+            //Modules to add more context for the AI
+            //const matte = await this.readTasksAndAddTheMostUrgentToContext()
+            //await this.loadMemoriesToContext()
+        }
+    }
+
+    async saveOngoingChat(){
+
+        const folderPath = this.plugin.settings.promptFolder + "/" + SAVED_CHATS_FOLDER_NAME
+
+        if (!app.vault.getAbstractFileByPath(folderPath)){
+            await app.vault.createFolder(folderPath)
+        }
+
+        let nowDate = new Date()
+        nowDate = nowDate.toISOString().slice(0,10) + " " + nowDate.toTimeString().slice(0,5).replace(":","h") + " " + nowDate.toTimeString().split("(")[1].replace(")", "" )
+        const filePath = folderPath + "/" + this.name + " discussion with " + this.plugin.settings.userName + " - " + nowDate + ".md"
+
+        const chat = `---\nopenaiThreadID:${this.ongoingChat.thread.id}\n---\n`
+
+        const existingFile = app.vault.getAbstractFileByPath(filePath)
+        if (existingFile){
+
+            await app.vault.append(existingFile,chat)
+        }
+
+    }
+}
+
+class OpenAIChat {
+    constructor(app,plugin,assistantID,startChatHistory=null){
+        this.app = app;
+        this.plugin = plugin;
+        this.assistantID = assistantID;
+        this.openai = plugin.OpenAIObject
+        this.thread;
+        this.run;
+        
+    }
+    async init(){
+        if(this.chatHistory){
+            //"assistant" or "system" not supported in the Assistant API for the moment
+            this.chatHistory = this.chatHistory.map(m=>{
+                if(m.role == "assistant" || m.role == "system"){
+                    return {
+                        "role": "user",
+                        "content": "Ai Assistant: \n"+ m.content.trim()
+                    }
+                }else{
+                    return m
+                }
+            })
+
+            this.thread = await this.setThread({"messages": this.chatHistory})
+            //this.thread = await this.openai.beta.threads.create({"messages": this.chatHistory})
+        } else{
+            this.thread = await this.setThread()
+            //this.thread = await this.openai.beta.threads.create()
+        }
+        
+    }
+
+    async setThread(messages=null){
+        if(this.threadID){
+            try{
+                
+                const trd = await this.openai.beta.threads.retrieve(this.threadID)
+                if(messages){
+                    messages.messages.forEach(m=>{
+                        this.openai.beta.threads.messages.create(
+                            this.threadID,
+                            m
+                        )
+                    })
+                }
+                return trd
+
+            } catch {
+                console.log(`Error retrieving thread with ID ${this.threadID}`)
+            }
+        } 
+
+        return await this.openai.beta.threads.create(messages)
+        
+    }
+
+    async sendMessage(messageObject,instructionsOverride = null){
+        /*messageObject should always have the following format:
+        {
+            role: "user", | only user is supported for the assistant API as of 2023-12-30
+            content: "Message to the assistant"
+        }*/
+        const message = await this.openai.beta.threads.messages.create(
+            this.thread.id,
+            messageObject
+        )
+
+        this.currentRun = await this.createRun(instructionsOverride)
+
+        let response = await this.getOpenAIresponse()
+
+        response = {
+            "role": "assistant",
+            "content": response.map(m=>m.content).join("\n")
+        }
+
+        return response
+    }
+
+    async getOpenAIresponse(){
+        // Checks the status of the run and does different things depending on the status: Return the run object if status is completed, retry in 0.5s if status is in_progress, return a message error if status is failed or canceled
+        const run = await this.checkRunStatus()
+
+        switch (run.status){
+            case "completed":
+                const messageResponse = await this.openai.beta.threads.messages.list(
+                    this.thread.id
+                )
+
+                let response = this.storeLastAssistantMessages(messageResponse.data)
+                
+                return response.map(m=>{return {"role": m.role,"content": m.content.map(n=>n.text.value).join("\n")}})
+
+            case "in_progress":
+            case "queued":
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return this.getOpenAIresponse();
+
+            case "failed":
+            case "canceled":
+                return { error: "Run failed or was canceled" }
+
+            case "expired":
+                return { error: "Run expired"}
+            //TODO: add the case where it needs output
+
+            case "requires_action":
+                await this.runFunctions()
+                await this.submitOutputs()
+                return this.getOpenAIresponse();
+                
+            default:
+                return { error: "Unexpected run status"};
+        }
+
+    }
+
+    storeLastAssistantMessages(messages){
+        const storedMessages = [];
+
+        for (const message of messages) {
+            if (message.role !== "assistant") {
+                break; // Stop iterating once a non-assistant message is encountered
+            }
+            storedMessages.push(message);
+        }
+
+        return storedMessages;
+        
+    }
+
+    async checkRunStatus(){
+        const run = await this.openai.beta.threads.runs.retrieve(
+            this.thread.id,
+            this.currentRun.id
+        )
+        return run
+    }
+    
+
+    async createRun(instructionsOverride = null) {
+
+        let runObject = { assistant_id: this.assistantID }
+        if (instructionsOverride){
+            runObject.instructions = instructionsOverride
+        }
+
+        const run = await this.openai.beta.threads.runs.create(
+            this.thread.id,
+            runObject
+        )
+
+        return run
+    }
+
+    async submitOutputs(){
+
+    }
+
+    async runFunctions(){
+
+    }
+
+}
+
+class YesNoModal extends Modal {
+    constructor(app, plugin, yesNoQuestion,detailedQuestion) {
+        super(app);
+        this.plugin = plugin;
+        this.yesNoQuestion = yesNoQuestion;
+        this.detailedQuestion = detailedQuestion;
+        this.awaitTillChosen = new Promise((resolve,reject)=>{
+            this.resolvePromise = resolve;
+            this.rejectPromise = reject;
+        })
+        this.submitted = false;
+        this.yesOrNo = "No"
+    }
+    
+    async onOpen(){
+        let {contentEl} = this;
+        contentEl.createEl("h2",{text:this.yesNoQuestion})
+        contentEl.createEl("p",{text:this.detailedQuestion})
+
+        const yesNoOptions = contentEl.createEl("div",{"cls":"YesNoBtns"})
+        const yesBtn = yesNoOptions.createEl("div",{text:"Yes","cls":"YesBtnModal"});
+        const noBtn = yesNoOptions.createEl("div",{text:"No","cls":"NoBtnModal"})
+
+
+        yesBtn.addEventListener("click", () => {
+            this.submitted = true;
+            this.yesOrNo = "Yes";
+            this.close(); 
+        });
+
+        noBtn.addEventListener("click", () => {
+            this.submitted = true;
+            this.yesOrNo = "No";
+            this.close(); 
+        });
+    }
+
+    onClose(){
+        this.containerEl.empty()
+        if ( this.submitted ){
+            this.resolvePromise();
+        } else {
+            this.rejectPromise();
+        }
+    };
+}
 
 class CharacterChoiceModal extends Modal {
     constructor(app, plugin) {
@@ -2084,7 +2854,7 @@ class PromptSelectionModal extends FuzzySuggestModal {
     //Check if quickAdd is available and if so parse the prompt to fill it 
     const quickAddPlugin = this.app.plugins.plugins.quickadd
     if (quickAddPlugin){
-        newPrompt = await quickAddPlugin.api.format(newPrompt)
+        newPrompt = await quickAddPlugin.api.format(newPrompt,VARIABLES_FOR_QUICKADD)
     }
     //Check if Templater is available and if so parse the prompt to fill it
     const templaterPlugin = this.app.plugins.plugins["templater-obsidian"];
@@ -2093,11 +2863,78 @@ class PromptSelectionModal extends FuzzySuggestModal {
         newPrompt = await templaterPlugin.templater.parse_template(cfg,newPrompt)
     }
 
-
-    this.view.insert_selection(newPrompt);
+    this.view.textarea.value = this.view.textarea.value.replace("::",newPrompt)
+    //this.view.insert_selection(newPrompt);
     this.view.adjustScrollHeight(document.getElementById("user-input"),this.view)
   }
 }
 
+const CHARA_SETTING_PROMPT_WRAPPER = "chara-setting-prompt-wrapper"
+const CHARA_SETTING_PROMPT_BOX = "chara-setting-prompt-box"
+const CHARA_SETTING_PROMPT_BOX_OPENAI = "chara-setting-prompt-box-openai"
+const CHARA_SETTING_PROMPT_BOX_UPDATE = "chara-setting-prompt-box-update"
+
+class OpenAICharaSettingsModal extends Modal {
+    constructor(app,plugin){
+        super(app);
+        this.plugin = plugin;
+
+    }
+    async onOpen(){
+        let {contentEl} = this;
+        contentEl.createEl("h2",{text:"OpenAI Character settings"})
+
+        const promptWrapper = contentEl.createEl("div",{cls:CHARA_SETTING_PROMPT_WRAPPER})
+
+        const defaultCharacter = this.plugin.settings.defaultCharacter
+        const openai = this.plugin.OpenAIObject
+        let assistant = await openai.beta.assistants.retrieve(defaultCharacter.openAI_id)
+        promptWrapper.createEl("div",{text: defaultCharacter.basesystemPrompt , cls:CHARA_SETTING_PROMPT_BOX})
+        let updateBtn = promptWrapper.createEl("div",{text: "Sync", cls:CHARA_SETTING_PROMPT_BOX_UPDATE})
+        let openAIInstructions = promptWrapper.createEl("div",{text: assistant.instructions, cls:CHARA_SETTING_PROMPT_BOX+ " "+ CHARA_SETTING_PROMPT_BOX_OPENAI})
+
+        updateBtn.addEventListener("click",async ()=>{
+            assistant = await openai.beta.assistants.update(
+                assistant.id,
+                {
+                    instructions: defaultCharacter.basesystemPrompt
+                }
+            )
+            openAIInstructions.text = assistant.instructions
+
+
+        })
+
+    }
+    async onClose(){
+
+    }
+}
+
+
+class characterAIAPI {
+    constructor(app,plugin){
+        this.app = app;
+        this.plugin = plugin;
+        this.activeCharacter;
+    }
+    async activateCharacter(characterName,threadID=null){
+        // Checks among the loaded characters whether one has the corresponding name, and iƒ so , loads a new chat instance with the character in the api setting (i.e. out of the main chat panel)
+
+        if (this.plugin.settings.loadedcharacters.length<1){
+            await this.plugin.loadCharacters()
+        }
+
+        try {
+
+            this.activeCharacter = this.plugin.settings.loadedcharacters.filter(f=>{
+                return f.name == characterName
+            })[0]
+
+        }catch {
+            console.log (`Failed to load the character ${characterName} - not found in the list of loaded characters`)
+        }
+    }
+}
 
 module.exports = ObsidianPlugin;
